@@ -1,2 +1,2 @@
 # oauth_with_jwt
-OAuth와 JWT을 이용한 프로젝트 학습을 기록한 저장소입니다.
+JWT와 OAuth로 구성한 프로젝트 구현 및 학습을 기록한 저장소입니다.
