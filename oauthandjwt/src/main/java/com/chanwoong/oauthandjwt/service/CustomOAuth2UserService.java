@@ -1,6 +1,8 @@
 package com.chanwoong.oauthandjwt.service;
 
 import com.chanwoong.oauthandjwt.dto.*;
+import com.chanwoong.oauthandjwt.entity.UserEntity;
+import com.chanwoong.oauthandjwt.repository.UserRepository;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -9,6 +11,12 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
+
+    // DB 접근을 위해 UserRepository 들고온다.
+    private final UserRepository userRepository;
+    public CustomOAuth2UserService(UserRepository userRepository){
+        this.userRepository = userRepository;
+    }
 
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
         OAuth2User oAuth2User = super.loadUser(userRequest);
@@ -39,12 +47,43 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         // 리소스 서버에서 발급 받은 정보로 사용자를 특정할 아이디 값 생성
         String username = oAuth2Response.getProvider() + " " + oAuth2Response.getProviderId();
 
-        // 담아줄 바구니(dto) 생성
-        UserDTO userDTO = new UserDTO();
-        userDTO.setUsername(username);
-        userDTO.setName(oAuth2Response.getName());
-        userDTO.setRole("ROLE_USER");
 
-        return new CustomOAuth2User(userDTO);
+
+        // username을 통해 DB 접근해서 있는 유저인지 없는 유저인지 확인하는 과정
+        UserEntity existData = userRepository.findByUsername(username);
+
+        // 존재하지 않는 경우
+        if (existData == null){
+            UserEntity userEntity = new UserEntity();
+            userEntity.setUsername(username);
+            userEntity.setEmail(oAuth2Response.getEmail());
+            userEntity.setName(oAuth2User.getName());
+            userEntity.setRole("ROLE_USER");
+
+            userRepository.save(userEntity);
+
+            // 담아줄 바구니(dto) 생성
+            UserDTO userDTO = new UserDTO();
+            userDTO.setUsername(username);
+            userDTO.setName(oAuth2Response.getName());
+            userDTO.setRole("ROLE_USER");
+
+            return new CustomOAuth2User(userDTO);
+        }
+
+        // 존재하는 경우, 업데이트하면 된다.
+        else {
+            existData.setEmail(oAuth2Response.getEmail());
+            existData.setName(oAuth2User.getName());
+
+            userRepository.save(existData);
+
+            UserDTO userDTO = new UserDTO();
+            userDTO.setUsername(existData.getUsername());
+            userDTO.setName(oAuth2Response.getName());
+            userDTO.setRole(existData.getRole());
+
+            return new CustomOAuth2User(userDTO);
+        }
     }
 }
